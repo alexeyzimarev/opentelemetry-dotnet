@@ -97,7 +97,7 @@ namespace OpenTelemetry.Exporter.Prometheus.Implementation
                 throw new InvalidOperationException("Metric name should not be empty");
             }
 
-            this.name = GetSafeMetricName(this.name);
+            this.name = GetSafeMetricName(this.name.AsSpan());
 
             if (!string.IsNullOrEmpty(this.description))
             {
@@ -152,7 +152,7 @@ namespace OpenTelemetry.Exporter.Prometheus.Implementation
                 if (m.Labels.Count > 0)
                 {
                     writer.Write(@"{");
-                    writer.Write(string.Join(",", m.Labels.Select(x => GetLabelAndValue(x.Item1, x.Item2))));
+                    writer.Write(string.Join(",", m.Labels.Select(x => GetLabelAndValue(x.Item1.AsSpan(), x.Item2.AsSpan()))));
                     writer.Write(@"}");
                 }
 
@@ -173,7 +173,7 @@ namespace OpenTelemetry.Exporter.Prometheus.Implementation
                 writer.Write("\n");
             }
 
-            static string GetLabelAndValue(string label, string value)
+            static string GetLabelAndValue(ReadOnlySpan<char> label, ReadOnlySpan<char> value)
             {
                 var safeKey = GetSafeLabelName(label);
                 var safeValue = GetSafeLabelValue(value);
@@ -181,7 +181,7 @@ namespace OpenTelemetry.Exporter.Prometheus.Implementation
             }
         }
 
-        private static string GetSafeName(string name, char[] firstCharNameCharset, char[] charNameCharset)
+        private static string GetSafeName(ReadOnlySpan<char> name, char[] firstCharNameCharset, char[] charNameCharset)
         {
             // https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
             //
@@ -210,17 +210,17 @@ namespace OpenTelemetry.Exporter.Prometheus.Implementation
             static char GetSafeChar(char c, char[] charset) => charset.Contains(c) ? c : '_';
         }
 
-        private static string GetSafeMetricName(string name) => GetSafeName(name, FirstCharacterNameCharset, NameCharset);
+        private static string GetSafeMetricName(ReadOnlySpan<char> name) => GetSafeName(name, FirstCharacterNameCharset, NameCharset);
 
-        private static string GetSafeLabelName(string name) => GetSafeName(name, FirstCharacterLabelCharset, LabelCharset);
+        private static string GetSafeLabelName(ReadOnlySpan<char> name) => GetSafeName(name, FirstCharacterLabelCharset, LabelCharset);
 
-        private static string GetSafeLabelValue(string value)
+        private static string GetSafeLabelValue(ReadOnlySpan<char> value)
         {
             // label_value can be any sequence of UTF-8 characters, but the backslash
             // (\), double-quote ("), and line feed (\n) characters have to be escaped
             // as \\, \", and \n, respectively.
 
-            var result = value.Replace("\\", "\\\\");
+            var result = value.ToString().Replace("\\", "\\\\");
             result = result.Replace("\n", "\\n");
             result = result.Replace("\"", "\\\"");
 
